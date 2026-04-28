@@ -1,5 +1,5 @@
 {
-  "name": "wechat-sticker-screenrecord-to-gif",
+  "name": "web-tools",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,10 +11,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.0.0",
+    "@mui/material": "^9.0.0",
     "@sentry/react": "^10.29.0",
     "gif.js": "^0.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.14.2",
     "react-use": "^17.6.0"
   },
   "devDependencies": {

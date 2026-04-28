@@ -1,4 +1,4 @@
-import type { Logger } from "../Logger"
+import type { Logger } from "../hooks/useLogger"
 import type { Color, ImageProcessor } from './types'
 
 export const colorToString = (color: Color): string => {

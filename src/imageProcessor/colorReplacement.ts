@@ -1,6 +1,6 @@
 import { colorToString } from './colorDetection'
 import type { Color, ImageProcessor, ProcessorConfig } from './types'
-import type { Logger } from '../Logger'
+import type { Logger } from '../hooks/useLogger'
 
 export const replaceColorWithTransparent = (
   imageData: ImageData,

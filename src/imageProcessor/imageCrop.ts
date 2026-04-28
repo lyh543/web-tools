@@ -1,5 +1,5 @@
 import type { Color, CropRegion, ImageProcessor, ProcessorConfig } from './types'
-import type { Logger } from '../Logger'
+import type { Logger } from '../hooks/useLogger'
 
 const MAX_COLOR_DISTANCE = Math.sqrt(4 * 255 * 255)
 
