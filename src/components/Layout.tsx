@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
@@ -36,13 +36,20 @@ export const Layout = ({ mode, onToggleMode }: LayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
 
+  const APP_NAME = '前端工具箱'
+
   const handleDrawerToggle = () => setMobileOpen(prev => !prev)
+
+  useEffect(() => {
+    const currentItem = NAV_ITEMS.find(item => item.path === location.pathname)
+    document.title = currentItem ? `${currentItem.label} - ${APP_NAME}` : APP_NAME
+  }, [location.pathname])
 
   const drawerContent = (
     <Box>
       <Toolbar>
         <Typography variant="h6" noWrap>
-          Web Tools
+          前端工具箱
         </Typography>
       </Toolbar>
       <Divider />
@@ -83,7 +90,7 @@ export const Layout = ({ mode, onToggleMode }: LayoutProps) => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            Web Tools
+            前端工具箱
           </Typography>
           <IconButton color="inherit" onClick={onToggleMode}>
             {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
