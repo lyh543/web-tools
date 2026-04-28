@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useEffect } from 'react'
+import { useState, useMemo, memo, useEffect, useCallback } from 'react'
 import { useLocalStorage } from 'react-use'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
@@ -705,9 +705,9 @@ export const TimestampPage = () => {
   // Toast notification
   const [showToast, setShowToast] = useState(false)
 
-  const handleCopySuccess = () => {
+  const handleCopySuccess = useCallback(() => {
     setShowToast(true)
-  }
+  }, [])
 
   // Section 1: Timestamp → Datetime
   const [tsInput, setTsInput] = useState('')
@@ -727,19 +727,19 @@ export const TimestampPage = () => {
   const [quickNow] = useState(() => new Date())
 
   // Handlers for real-time conversion results
-  const handleTsResultChange = (result: string, unit: string) => {
+  const handleTsResultChange = useCallback((result: string, unit: string) => {
     setTsResult(result)
     setTsDetectedUnit(unit)
-  }
+  }, [])
 
-  const handleDtResultChange = (result: string, precision: string) => {
+  const handleDtResultChange = useCallback((result: string, precision: string) => {
     setDtResult(result)
     setDtDetectedPrecision(precision)
-  }
+  }, [])
 
-  const handleBatchOutputChange = (output: string) => {
+  const handleBatchOutputChange = useCallback((output: string) => {
     setBatchOutput(output)
-  }
+  }, [])
 
   // ── Render ─────────────────────────────────────────────────────
 
