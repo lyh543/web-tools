@@ -1,4 +1,4 @@
-import type { Logger } from '../hooks/useLogger'
+import type { Logger } from '../useLogger'
 import type { ProgressManager } from '../progressManager'
 
 export type ProcessorLogger = Logger

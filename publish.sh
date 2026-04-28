@@ -21,3 +21,5 @@ if [ -d ${TARGET_DIR} ]; then
 fi
 mv ${TARGET_DIR}-new ${TARGET_DIR}
 rm -rf ${TARGET_DIR}-old
+
+echo "Build and deployment to ${TARGET_DIR} completed successfully."

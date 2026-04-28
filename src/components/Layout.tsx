@@ -13,16 +13,16 @@ import ListItemText from '@mui/material/ListItemText'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import MenuIcon from '@mui/icons-material/Menu'
-import GifBoxIcon from '@mui/icons-material/GifBox'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
+import { WechatIcon } from './WechatIcon'
 import type { PaletteMode } from '@mui/material'
 
 const DRAWER_WIDTH = 240
 
 const NAV_ITEMS = [
-  { label: '微信表情包转 GIF', icon: <GifBoxIcon />, path: '/wechat-sticker' },
+  { label: '微信表情包转 GIF', icon: <WechatIcon />, path: '/wechat-sticker' },
   { label: '时间戳转换', icon: <AccessTimeIcon />, path: '/timestamp' },
 ]
 

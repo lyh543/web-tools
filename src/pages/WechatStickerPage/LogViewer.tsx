@@ -1,6 +1,6 @@
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
-import type { LogEntry } from '../hooks/useLogger'
+import type { LogEntry } from './useLogger'
 
 interface LogViewerProps {
   logs: LogEntry[]

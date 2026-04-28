@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, type ChangeEvent } from 'react'
 import { useLocalStorage } from 'react-use'
-import { useLogger } from '../hooks/useLogger'
-import { LogViewer } from '../components/LogViewer'
-import { processFile } from '../processFile'
-import type { ProcessorConfig } from '../imageProcessor/types'
-import { createDefaultSteps, ProgressManager } from '../progressManager'
+import { useLogger } from './useLogger'
+import { LogViewer } from './LogViewer'
+import { processFile } from './processFile'
+import type { ProcessorConfig } from './imageProcessor/types'
+import { createDefaultSteps, ProgressManager } from './progressManager'
 
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -85,7 +85,7 @@ export const WechatStickerPage = () => {
   const targetSizeLabel = targetSize === 0 ? '不压缩' : `${targetSize}px`
 
   return (
-    <Box>
+    <Box sx={{ maxWidth: 720, mx: 'auto', px: 2 }}>
       <Typography variant="h4" gutterBottom>
         微信动态表情录屏转 GIF
       </Typography>

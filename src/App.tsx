@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useLocalStorage } from 'react-use'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -13,12 +13,12 @@ function App() {
   const [mode = 'light', setMode] = useLocalStorage<PaletteMode>('web-tools-theme-mode')
   const theme = useMemo(() => createAppTheme(mode), [mode])
 
-  const toggleMode = () => setMode(prev => (prev === 'dark' ? 'light' : 'dark'))
+  const toggleMode = () => setMode(mode === 'dark' ? 'light' : 'dark')
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <HashRouter>
+      <BrowserRouter>
         <Routes>
           <Route element={<Layout mode={mode} onToggleMode={toggleMode} />}>
             <Route index element={<Navigate to="/wechat-sticker" replace />} />
@@ -26,7 +26,7 @@ function App() {
             <Route path="/timestamp" element={<TimestampPage />} />
           </Route>
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </ThemeProvider>
   )
 }
