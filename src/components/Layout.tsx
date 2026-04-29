@@ -16,6 +16,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
+import GitHubIcon from '@mui/icons-material/GitHub'
 import { WechatIcon } from './WechatIcon'
 import type { PaletteMode } from '@mui/material'
 
@@ -92,6 +93,10 @@ export const Layout = ({ mode, onToggleMode }: LayoutProps) => {
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
             前端工具箱
           </Typography>
+          <IconButton color="inherit" component="a" href="https://github.com/lyh543/web-tools" target="_blank" rel="noreferrer">
+            <GitHubIcon />
+          </IconButton>
+          <Box sx={{ width: 8 }} />
           <IconButton color="inherit" onClick={onToggleMode}>
             {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
           </IconButton>

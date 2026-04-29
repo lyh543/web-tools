@@ -252,17 +252,6 @@ export const WechatStickerPage = () => {
 
       <LogViewer logs={logs} />
 
-      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          <a
-            href="https://github.com/lyh543/wechat-sticker-screenrecord-to-gif"
-            target="_blank"
-            rel="noreferrer"
-          >
-            在 GitHub 查看源码
-          </a>
-        </Typography>
-      </Box>
     </Box>
   )
 }
