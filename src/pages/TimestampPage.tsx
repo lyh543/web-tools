@@ -333,6 +333,7 @@ const CurrentTimePaper = memo(({ timezone, onTimezoneChange, onCopySuccess }: Cu
                     return (
                       <TableRow
                         key={tz}
+                        hover
                         selected={timezone === tz}
                         onClick={() => { onTimezoneChange(tz); setTzDialogOpen(false); setTzSearch('') }}
                         sx={{ cursor: 'pointer' }}
@@ -738,7 +739,7 @@ const QuickReferenceTable = memo(({ quickNow, timezone, onCopySuccess }: QuickRe
           </TableHead>
           <TableBody>
             {dayRows.map((row, i) => (
-              <TableRow key={i}>
+              <TableRow key={i} hover>
                 <TableCell sx={{ p: 0.75, fontWeight: 500 }}>{row.label}</TableCell>
                 {renderCell(row.midnight)}
                 {renderCell(row.now)}
