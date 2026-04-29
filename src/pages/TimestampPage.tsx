@@ -31,6 +31,7 @@ import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import SearchIcon from '@mui/icons-material/Search'
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -47,23 +48,35 @@ const UNIT_OPTIONS: { value: TimestampUnit; label: string }[] = [
 ]
 
 const COMMON_TIMEZONES = [
-  'Asia/Shanghai',
-  'Asia/Tokyo',
-  'Asia/Hong_Kong',
-  'Asia/Singapore',
-  'Asia/Kolkata',
-  'Asia/Dubai',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Europe/Moscow',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'Pacific/Auckland',
-  'Pacific/Honolulu',
-  'UTC',
+  'Pacific/Pago_Pago',       // UTC-11
+  'Pacific/Honolulu',        // UTC-10
+  'Pacific/Gambier',         // UTC-9 (无夏令时)
+  'America/Anchorage',       // UTC-9 (夏令时 UTC-8)
+  'America/Los_Angeles',     // UTC-8 (夏令时 UTC-7)
+  'America/Denver',          // UTC-7 (夏令时 UTC-6)
+  'America/Chicago',         // UTC-6 (夏令时 UTC-5)
+  'America/New_York',        // UTC-5 (夏令时 UTC-4)
+  'America/Halifax',         // UTC-4 (夏令时 UTC-3)
+  'America/Sao_Paulo',       // UTC-3
+  'Atlantic/South_Georgia',  // UTC-2
+  'Atlantic/Cape_Verde',     // UTC-1 (无夏令时)
+  'Atlantic/Azores',         // UTC-1 (夏令时 UTC+0)
+  'UTC',                     // UTC+0
+  'Europe/London',           // UTC+0 (夏令时 UTC+1)
+  'Europe/Paris',            // UTC+1 (夏令时 UTC+2)
+  'Europe/Helsinki',         // UTC+2 (夏令时 UTC+3)
+  'Europe/Moscow',           // UTC+3
+  'Asia/Dubai',              // UTC+4
+  'Asia/Karachi',            // UTC+5
+  'Asia/Kolkata',            // UTC+5:30
+  'Asia/Dhaka',              // UTC+6
+  'Asia/Bangkok',            // UTC+7
+  'Asia/Shanghai',           // UTC+8
+  'Asia/Tokyo',              // UTC+9
+  'Australia/Darwin',        // UTC+9:30
+  'Australia/Sydney',        // UTC+10 (夏令时 UTC+11)
+  'Pacific/Noumea',          // UTC+11
+  'Pacific/Auckland',        // UTC+12 (夏令时 UTC+13)
 ]
 
 // ── Helpers ────────────────────────────────────────────────
@@ -175,88 +188,128 @@ const copyToClipboard = (text: string, onCopySuccess?: () => void) => {
   })
 }
 
-// ── CurrentTimeDisplay (memoized, updates every 1 second) ──────────
+// ── CurrentTimePaper (memoized, updates every 1 second) ──────────
 
-interface CurrentTimeDisplayProps {
+interface CurrentTimePaperProps {
   timezone: string
+  onTimezoneChange: (tz: string) => void
+  onCopySuccess?: () => void
 }
 
-const CurrentTimeDisplay = memo(({ timezone }: CurrentTimeDisplayProps) => {
+const CurrentTimePaper = memo(({ timezone, onTimezoneChange, onCopySuccess }: CurrentTimePaperProps) => {
   const [now, setNow] = useState(new Date())
+  const [tzDialogOpen, setTzDialogOpen] = useState(false)
+  const [tzSearch, setTzSearch] = useState('')
+  const [sortedTimezones, setSortedTimezones] = useState<string[]>(COMMON_TIMEZONES)
+  const [displayInfo, setDisplayInfo] = useState<Map<string, { offset: string; time: string }>>(new Map())
+  const [tsUnit = 's', setTsUnit] = useLocalStorage<TimestampUnit>('web-tools-ts-cur-unit')
 
+  // Update current time every second
   useEffect(() => {
-    const updateNow = () => {
-      setNow(new Date())
-    }
-
-    const now = new Date()
-    const delay = 1000 - now.getMilliseconds()
+    const tick = () => setNow(new Date())
+    const delay = 1000 - new Date().getMilliseconds()
     const timeout = setTimeout(() => {
-      updateNow()
-      const interval = setInterval(updateNow, 1000)
+      tick()
+      const interval = setInterval(tick, 1000)
       return () => clearInterval(interval)
     }, delay)
-
     return () => clearTimeout(timeout)
   }, [])
 
-  const formatted = dayjs(now).tz(timezone).format('YYYY-MM-DD HH:mm:ss')
-
-  return (
-    <Typography variant="h2" sx={{ fontFamily: MONO_FONT_FAMILY, fontSize: '1.5rem' }}>
-      {formatted}
-    </Typography>
-  )
-})
-
-// ── TimezoneSelector (memoized, updates every minute) ──────────────
-
-interface TimezoneSelectorProps {
-  value: string
-  onChange: (value: string) => void
-}
-
-const TimezoneSelector = memo(({ value, onChange }: TimezoneSelectorProps) => {
-  const [open, setOpen] = useState(false)
-  const [sortedTimezones, setSortedTimezones] = useState<string[]>(COMMON_TIMEZONES)
-  const [displayInfo, setDisplayInfo] = useState<Map<string, { offset: string; time: string }>>(new Map())
-
+  // Update timezone display info every minute
   useEffect(() => {
-    const updateTimezoneInfo = () => {
+    const update = () => {
       const info = new Map<string, { offset: string; time: string }>()
-      const now = dayjs()
+      const cur = dayjs()
       const tzWithTime: [string, number][] = []
-
       COMMON_TIMEZONES.forEach(tz => {
-        const tzNow = now.tz(tz)
-        const offset = tzNow.format('Z')
-        const time = tzNow.format('MM-DD HH:mm')
-        info.set(tz, { offset, time })
-
-        const hours = tzNow.hour() + tzNow.minute() / 60
-        tzWithTime.push([tz, hours])
+        const tzNow = cur.tz(tz)
+        info.set(tz, { offset: tzNow.format('Z'), time: tzNow.format('MM-DD HH:mm') })
+        tzWithTime.push([tz, tzNow.hour() + tzNow.minute() / 60])
       })
-
       tzWithTime.sort((a, b) => a[1] - b[1])
-      setSortedTimezones(tzWithTime.map(([tz]) => tz))
+      setSortedTimezones(tzWithTime.map(([t]) => t))
       setDisplayInfo(info)
     }
-
-    updateTimezoneInfo()
-    const interval = setInterval(updateTimezoneInfo, 60000)
+    update()
+    const interval = setInterval(update, 60000)
     return () => clearInterval(interval)
   }, [])
 
-  const currentInfo = displayInfo.get(value)
-  const buttonLabel = currentInfo ? `${value} (${currentInfo.offset}) ${currentInfo.time}` : value
+  const dayjsNow = dayjs(now).tz(timezone)
+  const formattedTime = dayjsNow.format('YYYY-MM-DD HH:mm:ss')
+  const tsValue = fromMs(now.getTime(), tsUnit)
+  const tzInfo = displayInfo.get(timezone)
 
   return (
-    <>
-      <Button variant="outlined" onClick={() => setOpen(true)} size="small">
-        {buttonLabel}
-      </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>选择时区</DialogTitle>
+    <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+      {/* Row 1: title */}
+      <Typography variant="h6" gutterBottom>
+        当前时间
+      </Typography>
+
+      {/* Row 2: large time + timezone */}
+      <Stack sx={{ flexDirection: 'row', alignItems: 'center', mb: 1 }}>
+        <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 0.5, flex: 1 }}>
+          <Typography sx={{ fontFamily: MONO_FONT_FAMILY, fontSize: '1.5rem', fontWeight: 500 }}>
+            {formattedTime}
+          </Typography>
+          <IconButton size="small" sx={{ mt: 0 }} onClick={() => { copyToClipboard(formattedTime); onCopySuccess?.() }}>
+            <ContentCopyIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {tzInfo ? `${timezone} (UTC${tzInfo.offset})` : timezone}
+          </Typography>
+          <Button variant="outlined" size="small" onClick={() => setTzDialogOpen(true)}>
+            切换时区
+          </Button>
+        </Stack>
+      </Stack>
+
+      {/* Row 3: timestamp + unit selector */}
+      <Stack sx={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ fontFamily: MONO_FONT_FAMILY, fontSize: '1rem' }}>
+          {tsValue}
+        </Typography>
+        <IconButton size="small" sx={{ mt: 0 }} onClick={() => { copyToClipboard(String(tsValue)); onCopySuccess?.() }}>
+          <ContentCopyIcon fontSize="small" />
+        </IconButton>
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel>单位</InputLabel>
+          <Select
+            value={tsUnit}
+            label="单位"
+            onChange={e => setTsUnit(e.target.value as TimestampUnit)}
+          >
+            {UNIT_OPTIONS.map(o => (
+              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+
+      {/* Timezone Dialog */}
+      <Dialog open={tzDialogOpen} onClose={() => { setTzDialogOpen(false); setTzSearch('') }} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Stack sx={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>选择时区</span>
+            <TextField
+              variant="standard"
+              placeholder="搜索时区、偏移"
+              value={tzSearch}
+              onChange={e => setTzSearch(e.target.value)}
+              sx={{ width: 180 }}
+              autoFocus
+              slotProps={{
+                input: {
+                  startAdornment: <SearchIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />,
+                },
+              }}
+            />
+          </Stack>
+        </DialogTitle>
         <DialogContent>
           <TableContainer>
             <Table size="small">
@@ -268,37 +321,40 @@ const TimezoneSelector = memo(({ value, onChange }: TimezoneSelectorProps) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {sortedTimezones.map(tz => {
-                  const info = displayInfo.get(tz)
-                  const isSelected = value === tz
-                  return (
-                    <TableRow
-                      key={tz}
-                      selected={isSelected}
-                      onClick={() => {
-                        onChange(tz)
-                        setOpen(false)
-                      }}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>{tz}</TableCell>
-                      <TableCell>{info?.offset}</TableCell>
-                      <TableCell>{info?.time}</TableCell>
-                    </TableRow>
-                  )
-                })}
+                {sortedTimezones
+                  .filter(tz => {
+                    if (!tzSearch.trim()) return true
+                    const q = tzSearch.trim().toLowerCase()
+                    const info = displayInfo.get(tz)
+                    return tz.toLowerCase().includes(q) || (info?.offset ?? '').toLowerCase().includes(q)
+                  })
+                  .map(tz => {
+                    const info = displayInfo.get(tz)
+                    return (
+                      <TableRow
+                        key={tz}
+                        selected={timezone === tz}
+                        onClick={() => { onTimezoneChange(tz); setTzDialogOpen(false); setTzSearch('') }}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        <TableCell>{tz}</TableCell>
+                        <TableCell>{info?.offset}</TableCell>
+                        <TableCell>{info?.time}</TableCell>
+                      </TableRow>
+                    )
+                  })
+                }
               </TableBody>
             </Table>
           </TableContainer>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>关闭</Button>
+          <Button onClick={() => { setTzDialogOpen(false); setTzSearch('') }}>关闭</Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Paper>
   )
 })
-
 // ── TimestampToDatetimeSection ─────────────────────────────────────
 
 interface TimestampToDatetimeSectionProps {
@@ -749,11 +805,12 @@ export const TimestampPage = () => {
         时间戳转换
       </Typography>
 
-      {/* Global timezone selector with current time */}
-      <Stack spacing={1} sx={{ mb: 3, flexDirection: 'row', alignItems: 'center' }}>
-        <CurrentTimeDisplay timezone={timezone} />
-        <TimezoneSelector value={timezone} onChange={setTimezone} />
-      </Stack>
+      {/* Current time paper */}
+      <CurrentTimePaper
+        timezone={timezone}
+        onTimezoneChange={setTimezone}
+        onCopySuccess={handleCopySuccess}
+      />
 
       {/* ── 1. Timestamp → Datetime ── */}
       <TimestampToDatetimeSection
