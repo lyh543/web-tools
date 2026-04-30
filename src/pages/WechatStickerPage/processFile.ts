@@ -23,13 +23,14 @@ export interface HandleFileSelectDependencies {
   resetConverting: () => void
   setGifPreview: (url: string | null) => void
   setGifMeta: (meta: GifMeta | null) => void
+  onSuccess?: () => void
 }
 
 export const processFile = async (
   config: ProcessorConfig,
   deps: HandleFileSelectDependencies,
 ) => {
-  const { setConverting, setProgress, resetState, resetConverting, setGifPreview, setGifMeta } = deps
+  const { setConverting, setProgress, resetState, resetConverting, setGifPreview, setGifMeta, onSuccess } = deps
   const { logger, removeBackground, debugMode, progressManager } = config
 
   logger.log("\n\n")
@@ -121,6 +122,7 @@ export const processFile = async (
     
     logger.log('========== 转换完成 =========＝')
     resetConverting()
+    onSuccess?.()
   } catch (error) {
     console.error('转换失败:', error)
     const errorMessage = error instanceof Error ? error.message : '未知错误'

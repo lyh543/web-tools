@@ -108,6 +108,19 @@ test('ffmpeg decoder: converts fake-cry.mp4 with correct fps, duration, and aspe
   await waitForGifAndAssertMeta(page)
 })
 
+test('webcodecs decoder: converts fake-cry-h264.mp4 with correct fps, duration, and aspect ratio', async ({ page }) => {
+  // Select "webcodecs" decoder (default, but set explicitly to be safe)
+  const select = page.locator('.MuiSelect-select').first()
+  await select.click()
+  await page.getByRole('option', { name: /^webcodecs/ }).click()
+
+  // WebCodecs requires H.264 MP4; fake-cry-h264.mp4 is the H.264 re-encode
+  const fileInput = page.locator('input[type="file"]#videoInput')
+  await fileInput.setInputFiles(VIDEO_PATH_H264)
+
+  await waitForGifAndAssertMeta(page)
+})
+
 test('video decoder: debug mode logs appear during conversion', async ({ page }) => {
   // Enable debug mode
   const debugSwitch = page.getByLabel('调试模式（显示详细日志）')

@@ -99,11 +99,14 @@ export const extractFramesFromVideoWebCodecs = async (
           error: (e) => safeReject(new Error(`VideoDecoder 错误: ${e.message}`)),
         })
 
+        const description = getAVCCDescription(mp4box, videoTrackId)
+        log(`codec: ${videoTrack.codec}, description: ${description ? `${description.byteLength} bytes` : 'none (Annex-B mode)'}`)
+
         decoder.configure({
           codec: videoTrack.codec,
           codedWidth: videoWidth,
           codedHeight: videoHeight,
-          description: getAVCCDescription(mp4box, videoTrackId),
+          description,
         })
 
         mp4box.setExtractionOptions(videoTrackId, null, { nbSamples: 100 })
@@ -113,10 +116,17 @@ export const extractFramesFromVideoWebCodecs = async (
       }
     }
 
+    let seenKeyframe = false
+
     mp4box.onSamples = async (_trackId: number, _ref: unknown, samples: MP4Sample[]) => {
       if (rejected || !decoder) return
       try {
         for (const sample of samples) {
+          // VideoDecoder requires the first chunk to be a keyframe after configure().
+          // Skip leading non-keyframe samples in case mp4box delivers them first.
+          if (!seenKeyframe && !sample.is_sync) continue
+          seenKeyframe = true
+
           const chunk = new EncodedVideoChunk({
             type: sample.is_sync ? 'key' : 'delta',
             timestamp: Math.round(sample.dts * 1_000_000 / trackTimescale),
@@ -173,16 +183,23 @@ export const extractFramesFromVideoWebCodecs = async (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getAVCCDescription(mp4box: any, trackId: number): Uint8Array | undefined {
   try {
-    const trak = mp4box.getTrackById(trackId)
+    // Prefer iterating moov.traks directly — getTrackById() behavior varies across mp4box versions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trak = mp4box.moov?.traks?.find((t: any) => t.tkhd?.track_id === trackId)
+      ?? mp4box.getTrackById?.(trackId)
     const entry = trak?.mdia?.minf?.stbl?.stsd?.entries?.[0]
     const avcC = entry?.avcC
     if (!avcC) return undefined
-    // Use mp4box DataStream to properly serialize the box
+    // Use mp4box DataStream to serialize the box
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stream = new (MP4BoxLib as any).DataStream(undefined, 0, (MP4BoxLib as any).DataStream.BIG_ENDIAN)
     avcC.write(stream)
-    return new Uint8Array(stream.buffer, 0, stream.pos)
-  } catch {
+    // avcC.write() emits the full box: 4-byte size + 4-byte type "avcC" + AVCDecoderConfigurationRecord.
+    // VideoDecoder.configure() description must be ONLY the AVCDecoderConfigurationRecord (no box header).
+    // Use .slice() to create an independent copy rather than a view into the pre-allocated DataStream buffer.
+    return new Uint8Array(stream.buffer).slice(8, stream.pos)
+  } catch (err) {
+    console.warn('[webcodecs] getAVCCDescription failed:', err)
     return undefined
   }
 }

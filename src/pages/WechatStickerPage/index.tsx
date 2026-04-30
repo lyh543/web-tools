@@ -25,6 +25,7 @@ import Typography from '@mui/material/Typography'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import CloseIcon from '@mui/icons-material/Close'
+import TimerIcon from '@mui/icons-material/Timer'
 import type { ProcessorConfig } from './imageProcessor/types'
 
 export const WechatStickerPage = () => {
@@ -32,6 +33,7 @@ export const WechatStickerPage = () => {
   const [progress, setProgress] = useState(0)
   const [gifPreview, setGifPreview] = useState<string | null>(null)
   const [gifMeta, setGifMeta] = useState<GifMeta | null>(null)
+  const [conversionTimeMs, setConversionTimeMs] = useState<number | null>(null)
   const [cropTolerance = 0.02] = useLocalStorage<number>('wechat-sticker-gif-cropTolerance')
   const [removeBackground = false, setRemoveBackground] = useLocalStorage<boolean>('wechat-sticker-gif-removeBackground')
   const [debugMode = false, setDebugMode] = useLocalStorage<boolean>('wechat-sticker-gif-debugMode')
@@ -75,6 +77,9 @@ export const WechatStickerPage = () => {
         return null
       })
       setGifMeta(null)
+      setConversionTimeMs(null)
+
+      const startTime = Date.now()
 
       const config: ProcessorConfig = {
         logger,
@@ -101,6 +106,7 @@ export const WechatStickerPage = () => {
         resetConverting,
         setGifPreview,
         setGifMeta,
+        onSuccess: () => setConversionTimeMs(Date.now() - startTime),
       })
     },
     [logger, frameRate, removeBackground, cropTolerance, debugMode, targetSize, decoderMethod, setProgress, setConverting, resetState, resetConverting],
@@ -272,6 +278,16 @@ export const WechatStickerPage = () => {
             </CardContent>
           )}
           <CardActions sx={{ justifyContent: 'flex-end' }}>
+            {conversionTimeMs != null && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 'auto' }}>
+                <TimerIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  用时 {conversionTimeMs >= 1000
+                    ? `${(conversionTimeMs / 1000).toFixed(1)}s`
+                    : `${conversionTimeMs}ms`}
+                </Typography>
+              </Box>
+            )}
             <Button
               variant="outlined"
               color="error"
@@ -283,6 +299,7 @@ export const WechatStickerPage = () => {
                   setGifPreview(null)
                 }
                 setGifMeta(null)
+                setConversionTimeMs(null)
               }}
             >
               关闭预览
