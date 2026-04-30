@@ -1,0 +1,189 @@
+import * as MP4BoxLib from 'mp4box'
+import type { ProcessorConfig } from '../types'
+
+// mp4box 2.x exports the factory as a named export
+const MP4Box = MP4BoxLib
+
+interface MP4Sample {
+  data: Uint8Array
+  dts: number
+  duration: number
+  is_sync: boolean
+}
+
+interface MP4TrackInfo {
+  id: number
+  type: string
+  video?: {
+    width: number
+    height: number
+  }
+  codec: string
+  nb_samples: number
+  timescale: number
+}
+
+/**
+ * 使用 mp4box.js + WebCodecs VideoDecoder 解码视频帧。
+ * 仅支持 MP4/H.264（H.265 支持取决于浏览器）。
+ */
+export const extractFramesFromVideoWebCodecs = async (
+  config: ProcessorConfig,
+): Promise<ImageData[]> => {
+  const { file, frameRate, logger, progressManager } = config
+  const log = logger.log
+
+  progressManager.startNextStep()
+
+  log(`开始处理视频文件（webcodecs 方案）: ${file.name}`)
+
+  if (typeof VideoDecoder === 'undefined') {
+    throw new Error('当前浏览器不支持 WebCodecs API，请切换为 video 或 ffmpeg 方案')
+  }
+
+  const arrayBuffer = await file.arrayBuffer()
+
+  return new Promise<ImageData[]>((resolve, reject) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mp4box = (MP4Box as any).createFile()
+    let decoder: VideoDecoder | null = null
+    let videoTrackId = -1
+    let totalSamples = 0
+    let processedSamples = 0
+    let videoWidth = 0
+    let videoHeight = 0
+    let trackTimescale = 1
+    let rejected = false
+
+    const safeReject = (e: unknown) => {
+      if (rejected) return
+      rejected = true
+      try { decoder?.close() } catch { /* ignore */ }
+      reject(e)
+    }
+
+    const decodedFrames: { timestamp: number; imageData: ImageData }[] = []
+
+    mp4box.onError = (e: unknown) => safeReject(new Error(`mp4box 解析失败: ${e}`))
+
+    mp4box.onReady = (info: { tracks: MP4TrackInfo[] }) => {
+      try {
+        const videoTrack = info.tracks.find(t => t.type === 'video')
+        if (!videoTrack) {
+          safeReject(new Error('视频文件中未找到视频轨道'))
+          return
+        }
+
+        videoTrackId = videoTrack.id
+        totalSamples = videoTrack.nb_samples
+        videoWidth = videoTrack.video?.width ?? 0
+        videoHeight = videoTrack.video?.height ?? 0
+        trackTimescale = videoTrack.timescale
+
+        log(`视频尺寸: ${videoWidth}x${videoHeight}, 总帧数: ${totalSamples}, codec: ${videoTrack.codec}`)
+
+        const canvas = document.createElement('canvas')
+        canvas.width = videoWidth
+        canvas.height = videoHeight
+        const ctx = canvas.getContext('2d')!
+
+        decoder = new VideoDecoder({
+          output: (frame: VideoFrame) => {
+            ctx.drawImage(frame, 0, 0, videoWidth, videoHeight)
+            decodedFrames.push({
+              timestamp: frame.timestamp,
+              imageData: ctx.getImageData(0, 0, videoWidth, videoHeight),
+            })
+            frame.close()
+          },
+          error: (e) => safeReject(new Error(`VideoDecoder 错误: ${e.message}`)),
+        })
+
+        decoder.configure({
+          codec: videoTrack.codec,
+          codedWidth: videoWidth,
+          codedHeight: videoHeight,
+          description: getAVCCDescription(mp4box, videoTrackId),
+        })
+
+        mp4box.setExtractionOptions(videoTrackId, null, { nbSamples: 100 })
+        mp4box.start()
+      } catch (e) {
+        safeReject(e)
+      }
+    }
+
+    mp4box.onSamples = async (_trackId: number, _ref: unknown, samples: MP4Sample[]) => {
+      if (rejected || !decoder) return
+      try {
+        for (const sample of samples) {
+          const chunk = new EncodedVideoChunk({
+            type: sample.is_sync ? 'key' : 'delta',
+            timestamp: Math.round(sample.dts * 1_000_000 / trackTimescale),
+            duration: Math.round(sample.duration * 1_000_000 / trackTimescale),
+            data: sample.data,
+          })
+          decoder.decode(chunk)
+          processedSamples++
+
+          const progress = Math.floor((processedSamples / totalSamples) * 100)
+          progressManager.updateStepProgress(progress)
+
+          if (processedSamples % 50 === 0 || processedSamples === totalSamples) {
+            log(`已解码 ${processedSamples}/${totalSamples} 帧`)
+          }
+        }
+
+        if (processedSamples >= totalSamples) {
+          await decoder!.flush()
+          decoder!.close()
+
+          decodedFrames.sort((a, b) => a.timestamp - b.timestamp)
+
+          const videoDurationUs = decodedFrames.length > 0
+            ? decodedFrames[decodedFrames.length - 1].timestamp
+            : 0
+
+          const frameIntervalUs = 1_000_000 / frameRate
+          const result: ImageData[] = []
+          let nextTarget = 0
+          for (const f of decodedFrames) {
+            if (f.timestamp >= nextTarget) {
+              result.push(f.imageData)
+              nextTarget += frameIntervalUs
+            }
+          }
+
+          log(`帧提取完成，共 ${result.length} 帧（视频时长约 ${(videoDurationUs / 1_000_000).toFixed(2)}s）`)
+          resolve(result)
+        }
+      } catch (e) {
+        safeReject(e)
+      }
+    }
+
+    const buf = arrayBuffer as ArrayBuffer & { fileStart: number }
+    buf.fileStart = 0
+    mp4box.appendBuffer(buf)
+    mp4box.flush()
+  })
+}
+
+// 提取 avcC 描述符（用于 VideoDecoder.configure）
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getAVCCDescription(mp4box: any, trackId: number): Uint8Array | undefined {
+  try {
+    const trak = mp4box.getTrackById(trackId)
+    const entry = trak?.mdia?.minf?.stbl?.stsd?.entries?.[0]
+    const avcC = entry?.avcC
+    if (!avcC) return undefined
+    // Use mp4box DataStream to properly serialize the box
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stream = new (MP4BoxLib as any).DataStream(undefined, 0, (MP4BoxLib as any).DataStream.BIG_ENDIAN)
+    avcC.write(stream)
+    return new Uint8Array(stream.buffer, 0, stream.pos)
+  } catch {
+    return undefined
+  }
+}
+

@@ -30,7 +30,7 @@ export const renderGifFromFrames = async (
   const gif = new GIF({
     workers: 2,
     quality: 10,
-    workerScript: '/assets/gif.worker.js'
+    workerScript: '/assets/gif.worker.js',
   })
 
   log('初始化 GIF 编码器 (workers: 2, quality: 10)')

@@ -9,18 +9,27 @@ import { frameRateDetectProcessor } from './imageProcessor/frameRateDetect'
 import { resizeProcessor } from './imageProcessor/imageResize'
 import { ProgressManager } from './progressManager'
 
+export interface GifMeta {
+  sizeBytes: number
+  frameCount: number
+  fps: number
+  durationSec: number
+}
+
 export interface HandleFileSelectDependencies {
   setConverting: (value: boolean) => void
   setProgress: (value: number) => void
   resetState: () => void
+  resetConverting: () => void
   setGifPreview: (url: string | null) => void
+  setGifMeta: (meta: GifMeta | null) => void
 }
 
 export const processFile = async (
   config: ProcessorConfig,
   deps: HandleFileSelectDependencies,
 ) => {
-  const { setConverting, setProgress, resetState, setGifPreview } = deps
+  const { setConverting, setProgress, resetState, resetConverting, setGifPreview, setGifMeta } = deps
   const { logger, removeBackground, debugMode, progressManager } = config
 
   logger.log("\n\n")
@@ -78,7 +87,16 @@ export const processFile = async (
     // 生成 GIF
     const gifBlob = await renderGifFromFrames(processedFrames, config)
     progressManager?.completeCurrentStep()
-    
+
+    // 计算并存储元数据
+    const finalFps = config.detectedFrameRate ?? config.frameRate
+    setGifMeta({
+      sizeBytes: gifBlob.size,
+      frameCount: processedFrames.length,
+      fps: finalFps,
+      durationSec: processedFrames.length / finalFps,
+    })
+
     // 创建预览 URL
     const previewUrl = URL.createObjectURL(gifBlob)
     setGifPreview(previewUrl)
@@ -102,11 +120,14 @@ export const processFile = async (
     }
     
     logger.log('========== 转换完成 =========＝')
-    resetState()
+    resetConverting()
   } catch (error) {
     console.error('转换失败:', error)
     const errorMessage = error instanceof Error ? error.message : '未知错误'
     logger.log(`❌ 转换失败: ${errorMessage}`)
+    if (config.decoderMethod === 'video' || config.decoderMethod === 'webcodecs') {
+      logger.log('💡 提示：可尝试切换为「ffmpeg（兼容性最强，首次加载约 10MB）」方案再试')
+    }
     alert(`转换失败: ${errorMessage}`)
     resetState()
   }

@@ -4,6 +4,9 @@ import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // https://vite.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+  },
   plugins: [
     react(),
     viteStaticCopy({
@@ -11,7 +14,7 @@ export default defineConfig({
         {
           src: 'node_modules/gif.js/dist/gif.worker.js',
           dest: 'assets'
-        }
+        },
       ]
     })
   ],

@@ -65,6 +65,9 @@ export interface ProcessorConfig {
 
   /** 目标最大尺寸（像素），图片会按比例缩放使宽高的较大值不超过此值。 */
   targetSize: number
+
+  /** 视频解码方案。 */
+  decoderMethod: 'video' | 'webcodecs' | 'ffmpeg'
 }
 
 export interface ImageProcessor {

@@ -3,7 +3,7 @@ import { useLocalStorage } from 'react-use'
 import { useLogger } from './useLogger'
 import { LogViewer } from './LogViewer'
 import { processFile } from './processFile'
-import type { ProcessorConfig } from './imageProcessor/types'
+import type { GifMeta } from './processFile'
 import { createDefaultSteps, ProgressManager } from './progressManager'
 
 import Box from '@mui/material/Box'
@@ -17,21 +17,27 @@ import FormHelperText from '@mui/material/FormHelperText'
 import LinearProgress from '@mui/material/LinearProgress'
 import Paper from '@mui/material/Paper'
 import Slider from '@mui/material/Slider'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import Typography from '@mui/material/Typography'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
+import CloseIcon from '@mui/icons-material/Close'
+import type { ProcessorConfig } from './imageProcessor/types'
 
 export const WechatStickerPage = () => {
   const [converting, setConverting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [gifPreview, setGifPreview] = useState<string | null>(null)
+  const [gifMeta, setGifMeta] = useState<GifMeta | null>(null)
   const [cropTolerance = 0.02] = useLocalStorage<number>('wechat-sticker-gif-cropTolerance')
   const [removeBackground = false, setRemoveBackground] = useLocalStorage<boolean>('wechat-sticker-gif-removeBackground')
   const [debugMode = false, setDebugMode] = useLocalStorage<boolean>('wechat-sticker-gif-debugMode')
-  const [frameRate = 5, setFrameRate] = useLocalStorage<number>('wechat-sticker-gif-frameRate')
+  const [frameRate = 10, setFrameRate] = useLocalStorage<number>('wechat-sticker-gif-frameRate')
   const [targetSizeSlider = 6, setTargetSizeSlider] = useLocalStorage<number>('wechat-sticker-gif-targetSizeSlider')
+  const [decoderMethod = 'webcodecs', setDecoderMethod] = useLocalStorage<ProcessorConfig['decoderMethod']>('wechat-sticker-decoder-method', 'webcodecs')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { logs, logger, clearLogs } = useLogger(debugMode)
 
@@ -50,10 +56,25 @@ export const WechatStickerPage = () => {
     }
   }, [gifPreview])
 
+  const resetConverting = useCallback(() => {
+    setConverting(false)
+    setProgress(0)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [])
+
   const handleFileSelect = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (!file) return
+
+      // 清理上一次的预览
+      setGifPreview(prev => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+      setGifMeta(null)
 
       const config: ProcessorConfig = {
         logger,
@@ -70,16 +91,19 @@ export const WechatStickerPage = () => {
         debugMode,
         file,
         targetSize,
+        decoderMethod: decoderMethod ?? 'webcodecs',
       }
 
       processFile(config, {
         setConverting,
         setProgress,
         resetState,
+        resetConverting,
         setGifPreview,
+        setGifMeta,
       })
     },
-    [logger, frameRate, removeBackground, cropTolerance, debugMode, targetSize, setProgress, setConverting, resetState],
+    [logger, frameRate, removeBackground, cropTolerance, debugMode, targetSize, decoderMethod, setProgress, setConverting, resetState, resetConverting],
   )
 
   const targetSizeLabel = targetSize === 0 ? '不压缩' : `${targetSize}px`
@@ -92,10 +116,26 @@ export const WechatStickerPage = () => {
 
       {/* Settings */}
       <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }} gutterBottom>
+        <Typography variant="h6" gutterBottom>
           转换设置
         </Typography>
         <Stack spacing={3}>
+          {/* Decoder method */}
+          <Box>
+            <Typography gutterBottom>解码方案</Typography>
+            <Select
+              value={decoderMethod}
+              onChange={e => setDecoderMethod(e.target.value as ProcessorConfig['decoderMethod'])}
+              disabled={converting}
+              size="small"
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="webcodecs">webcodecs（速度最快，仅限 MP4/H.264）</MenuItem>
+              <MenuItem value="video">video（兼容大部分格式，无需额外加载）</MenuItem>
+              <MenuItem value="ffmpeg">ffmpeg（全能解码器，兼容性最好，首次加载约 10MB）</MenuItem>
+            </Select>
+          </Box>
+
           {/* Remove background */}
           <Box>
             <FormControlLabel
@@ -192,7 +232,7 @@ export const WechatStickerPage = () => {
 
       {/* Progress bar */}
       {converting && (
-        <Box sx={{ maxWidth: 480, mb: 3 }}>
+        <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="body2" color="text.secondary">
               处理进度
@@ -207,9 +247,9 @@ export const WechatStickerPage = () => {
 
       {/* GIF preview */}
       {gifPreview && (
-        <Card sx={{ maxWidth: 480, mb: 3 }}>
+        <Card sx={{ mb: 3 }}>
           <CardContent sx={{ pb: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+            <Typography variant="h6">
               预览结果
             </Typography>
           </CardContent>
@@ -219,16 +259,30 @@ export const WechatStickerPage = () => {
             alt="GIF Preview"
             sx={{ imageRendering: 'pixelated', objectFit: 'contain', maxHeight: 400 }}
           />
-          <CardActions>
+          {gifMeta && (
+            <CardContent sx={{ pt: 1, pb: 0 }}>
+              <Typography variant="body2" color="text.secondary">
+                大小 {gifMeta.sizeBytes >= 1024 * 1024
+                  ? `${(gifMeta.sizeBytes / 1024 / 1024).toFixed(2)} MB`
+                  : `${(gifMeta.sizeBytes / 1024).toFixed(1)} KB`} &nbsp;·&nbsp;
+                时长 {gifMeta.durationSec.toFixed(2)}s &nbsp;·&nbsp;
+                {gifMeta.frameCount} 帧 &nbsp;·&nbsp;
+                {gifMeta.fps} fps
+              </Typography>
+            </CardContent>
+          )}
+          <CardActions sx={{ justifyContent: 'flex-end' }}>
             <Button
               variant="outlined"
               color="error"
               size="small"
+              startIcon={<CloseIcon />}
               onClick={() => {
                 if (gifPreview) {
                   URL.revokeObjectURL(gifPreview)
                   setGifPreview(null)
                 }
+                setGifMeta(null)
               }}
             >
               关闭预览
