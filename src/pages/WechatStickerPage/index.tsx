@@ -26,6 +26,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import CloseIcon from '@mui/icons-material/Close'
 import TimerIcon from '@mui/icons-material/Timer'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import type { ProcessorConfig } from './imageProcessor/types'
 
 export const WechatStickerPage = () => {
@@ -267,17 +268,20 @@ export const WechatStickerPage = () => {
           />
           {gifMeta && (
             <CardContent sx={{ pt: 1, pb: 0 }}>
-              <Typography variant="body2" color="text.secondary">
-                大小 {gifMeta.sizeBytes >= 1024 * 1024
-                  ? `${(gifMeta.sizeBytes / 1024 / 1024).toFixed(2)} MB`
-                  : `${(gifMeta.sizeBytes / 1024).toFixed(1)} KB`} &nbsp;·&nbsp;
-                时长 {gifMeta.durationSec.toFixed(2)}s &nbsp;·&nbsp;
-                {gifMeta.frameCount} 帧 &nbsp;·&nbsp;
-                {gifMeta.fps} fps
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <InfoOutlinedIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  大小 {gifMeta.sizeBytes >= 1024 * 1024
+                    ? `${(gifMeta.sizeBytes / 1024 / 1024).toFixed(2)} MB`
+                    : `${(gifMeta.sizeBytes / 1024).toFixed(1)} KB`} &nbsp;·&nbsp;
+                  时长 {gifMeta.durationSec.toFixed(2)}s &nbsp;·&nbsp;
+                  {gifMeta.frameCount} 帧 &nbsp;·&nbsp;
+                  {gifMeta.fps} fps
+                </Typography>
+              </Box>
             </CardContent>
           )}
-          <CardActions sx={{ justifyContent: 'flex-end' }}>
+          <CardActions sx={{ justifyContent: 'flex-end', px: 2 }}>
             {conversionTimeMs != null && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 'auto' }}>
                 <TimerIcon fontSize="small" color="action" />
