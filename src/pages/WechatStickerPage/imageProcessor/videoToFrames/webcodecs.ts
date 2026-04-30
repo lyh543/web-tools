@@ -99,7 +99,7 @@ export const extractFramesFromVideoWebCodecs = async (
           error: (e) => safeReject(new Error(`VideoDecoder 错误: ${e.message}`)),
         })
 
-        const description = getAVCCDescription(mp4box, videoTrackId)
+        const description = getCodecDescription(mp4box, videoTrackId)
         log(`codec: ${videoTrack.codec}, description: ${description ? `${description.byteLength} bytes` : 'none (Annex-B mode)'}`)
 
         decoder.configure({
@@ -179,27 +179,28 @@ export const extractFramesFromVideoWebCodecs = async (
   })
 }
 
-// 提取 avcC 描述符（用于 VideoDecoder.configure）
+// 提取编解码器描述符用于 VideoDecoder.configure()。
+// H.264 使用 avcC box，H.265/HEVC 使用 hvcC box。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getAVCCDescription(mp4box: any, trackId: number): Uint8Array | undefined {
+function getCodecDescription(mp4box: any, trackId: number): Uint8Array | undefined {
   try {
     // Prefer iterating moov.traks directly — getTrackById() behavior varies across mp4box versions
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const trak = mp4box.moov?.traks?.find((t: any) => t.tkhd?.track_id === trackId)
       ?? mp4box.getTrackById?.(trackId)
     const entry = trak?.mdia?.minf?.stbl?.stsd?.entries?.[0]
-    const avcC = entry?.avcC
-    if (!avcC) return undefined
-    // Use mp4box DataStream to serialize the box
+    // H.264: avcC box; H.265/HEVC: hvcC box
+    const configBox = entry?.avcC ?? entry?.hvcC
+    if (!configBox) return undefined
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stream = new (MP4BoxLib as any).DataStream(undefined, 0, (MP4BoxLib as any).DataStream.BIG_ENDIAN)
-    avcC.write(stream)
-    // avcC.write() emits the full box: 4-byte size + 4-byte type "avcC" + AVCDecoderConfigurationRecord.
-    // VideoDecoder.configure() description must be ONLY the AVCDecoderConfigurationRecord (no box header).
-    // Use .slice() to create an independent copy rather than a view into the pre-allocated DataStream buffer.
+    configBox.write(stream)
+    // write() prepends an 8-byte box header (4-byte size + 4-byte type name).
+    // VideoDecoder.configure() description must be ONLY the decoder config record (no box header).
+    // Use .slice() to get an independent copy from the pre-allocated DataStream buffer.
     return new Uint8Array(stream.buffer).slice(8, stream.pos)
   } catch (err) {
-    console.warn('[webcodecs] getAVCCDescription failed:', err)
+    console.warn('[webcodecs] getCodecDescription failed:', err)
     return undefined
   }
 }

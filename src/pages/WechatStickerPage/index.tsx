@@ -136,7 +136,7 @@ export const WechatStickerPage = () => {
               size="small"
               sx={{ minWidth: 200 }}
             >
-              <MenuItem value="webcodecs">webcodecs（速度最快，仅限 MP4/H.264）</MenuItem>
+              <MenuItem value="webcodecs">webcodecs（速度最快，无需额外加载）</MenuItem>
               <MenuItem value="video">video（兼容大部分格式，无需额外加载）</MenuItem>
               <MenuItem value="ffmpeg">ffmpeg（全能解码器，兼容性最好，首次加载约 10MB）</MenuItem>
             </Select>
